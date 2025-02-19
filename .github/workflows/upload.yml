@@ -1,1 +1,46 @@
+name: Reusable Upload
+on:
+    workflow_call:
+        inputs:
+            artifacts_name:
+                description: Name of artifacts
+                required: true
+                default: dist-files
+                type: string
+        outputs:
+            result:
+                description: success 
+                value: ${{jobs.uploadJob.outputs.res}}
 
+jobs:
+    uploadJob:
+        runs-on: ubuntu-latest
+        outputs:
+            res: ${{steps.output.outputs.success_result}}
+        steps:
+            - name: Get code
+              uses: actions/checkout@v4
+
+            - name: Cache dependencies
+              id: cache
+              uses: actions/cache@v4
+              with:
+                path: node_modules
+                key: deps-node-modules-${{ hashFiles('**/package-lock.json') }}
+
+            - name: Install dependencies
+              if: steps.cache.outputs.cache-hit != 'true'
+              run: npm ci
+
+            - name: Build website
+              id: build-website
+              run: npm run build
+
+            - name: Upload artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                name: ${{inputs.artifacts_name}}
+                path: dist
+            - name: Show Output
+              id: output
+              run: echo "success_result= success"  >> $GITHUB_OUTPUT
