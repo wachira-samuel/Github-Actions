@@ -3,84 +3,67 @@ on:
   push:
     branches:
       - master
-# env:
-#   DATABASE_NAME: TEST
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - name: Get code
+      - name: Checkout code
         uses: actions/checkout@v4
       - name: Cache dependencies
         id: cache
         uses: actions/cache@v4
         with:
-          path: node_modules
-          key: deps-node-modules-${{ hashFiles('**/package-lock.json') }}
+          path: .cache
+          key: cache-${{ runner.os }}-${{ hashFiles('**/*.lock') }}
       - name: Install dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: npm ci
       - name: Lint code
         run: npm run lint
+
   test:
-    # env:
-    #   Password: 1234
     continue-on-error: true
-    environment: testing
     runs-on: ubuntu-latest
     steps:
-      - name: Get code
+      - name: Checkout code
         uses: actions/checkout@v4
       - name: Cache dependencies
         id: cache
         uses: actions/cache@v4
         with:
-          path: node_modules
-          key: deps-node-modules-${{ hashFiles('**/package-lock.json') }}
+          path: .cache
+          key: cache-${{ runner.os }}-${{ hashFiles('**/*.lock') }}
       - name: Install dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: npm ci
       - name: Test code
-        id: test
         run: npm run test
-       
-      - name: Dummmy
-        if: failure()
-        run: echo " Will Fail"
-
       - name: Upload test report
-        if: failure() && steps.test.outcome =='failure'
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: test-report
           path: test.json
-      - name: Output Environment Variable
-        run: echo "${{secrets.DATABASE_NAME}}"
-     
+
   build:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - name: Get code
+      - name: Checkout code
         uses: actions/checkout@v4
       - name: Cache dependencies
         id: cache
         uses: actions/cache@v4
         with:
-          path: node_modules
-          key: deps-node-modules-${{ hashFiles('**/package-lock.json') }}
+          path: .cache
+          key: cache-${{ runner.os }}-${{ hashFiles('**/*.lock') }}
       - name: Install dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: npm ci
       - name: Build website
-        id: build-website
         run: npm run build
-      # - name: Upload artifacts
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: dist-files
-      #     path: dist
+
   upload:
     uses: ./.github/workflows/upload.yml
     with:
@@ -88,20 +71,13 @@ jobs:
 
   deploy:
     needs: upload
-    environment: production
     runs-on: ubuntu-latest
     steps:
-      - name: Get build artifacts
+      - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
           name: myfiles
       - name: Output contents
         run: ls
-      
-      # - name: Output Environment Variable
-      #   run: echo "${{env.DATABASE_NAME}} ${{env.Password}}" 
-      - name: Output Environment Variable
-        run: echo "${{secrets.DATABASE_NAME}}" 
       - name: Deploy
         run: echo "Deploying..."
-
